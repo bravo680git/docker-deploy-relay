@@ -1,0 +1,12 @@
+services:
+  docker-deploy-relay:
+    image: bravo680/docker-deploy-relay:latest
+    container_name: docker-deploy-relay
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /apps:/apps

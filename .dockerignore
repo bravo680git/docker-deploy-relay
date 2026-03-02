@@ -1,0 +1,39 @@
+# Binaries
+
+docker-deploy-relay
+_.exe
+_.dll
+_.so
+_.dylib
+
+# Docker
+
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+
+.git
+.gitignore
+
+# IDE
+
+.idea/
+.vscode/
+_.swp
+_.swo
+
+# CI/CD
+
+.github/
+
+# Docs
+
+README.md
+LICENSE
+
+# OS
+
+.DS_Store
+Thumbs.db
