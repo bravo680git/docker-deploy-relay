@@ -67,6 +67,15 @@ Include `X-API-KEY: your-secure-api-key` in the header or `?api_key=your-secure-
 
 Note: the query string option is supported for backwards compatibility, but is discouraged because URLs are often logged by proxies.
 
+### 4. Quick Test with cURL
+
+```bash
+curl -X POST https://your-relay-host/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-API-KEY: your-secure-api-key" \
+  -d '{"project": "my-app", "image": "myuser/my-app", "tag": "v1.0.0"}'
+```
+
 ## 🔧 Environment Variables
 
 | Variable          | Description                                      |
