@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -47,8 +48,21 @@ func releaseDeploySlot() {
 	<-getDeploySemaphore()
 }
 
+func expandTilde(path string) string {
+	if path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	} else if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
 func resolveSafePath(root, sub string) (string, error) {
-	rootAbs, err := filepath.Abs(filepath.Clean(root))
+	rootAbs, err := filepath.Abs(filepath.Clean(expandTilde(root)))
 	if err != nil {
 		return "", fmt.Errorf("resolve PROJECT_ROOT: %v", err)
 	}
