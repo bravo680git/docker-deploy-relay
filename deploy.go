@@ -124,6 +124,17 @@ func runCmd(ctx context.Context, dir, name string, args ...string) ([]byte, erro
 	return cmd.CombinedOutput()
 }
 
+func detectComposeFile(projectDir string) (string, error) {
+	candidates := []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"}
+	for _, filename := range candidates {
+		fullPath := filepath.Join(projectDir, filename)
+		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
+			return fullPath, nil
+		}
+	}
+	return "", fmt.Errorf("no compose file found in %s", projectDir)
+}
+
 func runDeployment(p WebhookPayload) {
 	fullImage := fmt.Sprintf("%s:%s", p.Image, p.Tag)
 	log.Printf("Starting deployment for %s (%s)", p.Project, fullImage)
@@ -148,8 +159,16 @@ func runDeployment(p WebhookPayload) {
 		return
 	}
 
+	composeFile, err := detectComposeFile(projectDir)
+	if err != nil {
+		log.Printf("❌ %s: %v", p.Project, err)
+		return
+	}
+
+	composeArgs := []string{"compose", "--project-directory", projectDir, "-f", composeFile, "up", "-d"}
+
 	composeCtx, composeCancel := context.WithTimeout(ctx, envDuration("DOCKER_COMPOSE_TIMEOUT", defaultComposeTimeout))
-	out, err = runCmd(composeCtx, projectDir, "docker", "compose", "up", "-d")
+	out, err = runCmd(composeCtx, projectDir, "docker", composeArgs...)
 	composeCancel()
 	if err != nil {
 		log.Printf("❌ %s: compose up failed: %v\n%s", p.Project, err, out)
