@@ -44,10 +44,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /path/to/your/apps:/apps
     environment:
-      - WEBHOOK_API_KEY=your-secure-api-key
-      - DOCKER_HUB_USER=your-docker-hub-username
-      - DOCKER_HUB_PASS=your-docker-hub-password
-      - PROJECT_ROOT=/apps
+      - RELAY_WEBHOOK_API_KEY=your-secure-api-key
+      - RELAY_DOCKER_HUB_USER=your-docker-hub-username
+      - RELAY_DOCKER_HUB_PASS=your-docker-hub-password
+      - RELAY_PROJECT_ROOT=/apps
     restart: unless-stopped
 ```
 
@@ -78,26 +78,26 @@ curl -X POST https://your-relay-host/webhook \
 
 ## 🔧 Environment Variables
 
-| Variable          | Description                                      |
-| ----------------- | ------------------------------------------------ |
-| `WEBHOOK_API_KEY` | Key used to verify the incoming webhook request. |
-| `DOCKER_HUB_USER` | Your Docker Hub username for authentication.     |
-| `DOCKER_HUB_PASS` | Your Docker Hub password (or access token).      |
-| `PROJECT_ROOT`    | Base path for projects (default: `/apps`).       |
-| `PORT`            | Web server port (default: `8080`).               |
+| Variable                | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `RELAY_WEBHOOK_API_KEY` | Key used to verify the incoming webhook request. |
+| `RELAY_DOCKER_HUB_USER` | Your Docker Hub username for authentication.     |
+| `RELAY_DOCKER_HUB_PASS` | Your Docker Hub password (or access token).      |
+| `RELAY_PROJECT_ROOT`    | Base path for projects (default: `/apps`).       |
 
 ### Optional safety limits
 
-| Variable                 | Description                                                               |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `MAX_CONCURRENT_DEPLOYS` | Max number of deployments running at once (default: `2`).                 |
-| `DEPLOY_TIMEOUT`         | Max total time for a deployment (e.g. `15m`). Default: `15m`.             |
-| `DOCKER_PULL_TIMEOUT`    | Timeout for `docker pull` (e.g. `10m`). Default: `10m`.                   |
-| `DOCKER_COMPOSE_TIMEOUT` | Timeout for `docker compose up -d` (e.g. `10m`). Default: `10m`.          |
-| `HUB_TIMEOUT`            | Timeout for Docker Hub tag deletion step (e.g. `20s`). Default: `20s`.    |
-| `HUB_HTTP_TIMEOUT`       | HTTP client timeout for Docker Hub requests (e.g. `10s`). Default: `10s`. |
-| `RATE_LIMIT_RPS`         | Per-IP request rate (tokens/sec). Default: `1`.                           |
-| `RATE_LIMIT_BURST`       | Per-IP burst capacity. Default: `5`.                                      |
+| Variable                       | Description                                                               |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| `RELAY_MAX_CONCURRENT_DEPLOYS` | Max number of deployments running at once (default: `2`).                 |
+| `RELAY_DEPLOY_TIMEOUT`         | Max total time for a deployment (e.g. `15m`). Default: `15m`.             |
+| `RELAY_DOCKER_PULL_TIMEOUT`    | Timeout for `docker pull` (e.g. `10m`). Default: `10m`.                   |
+| `RELAY_DOCKER_COMPOSE_TIMEOUT` | Timeout for `docker compose up -d` (e.g. `10m`). Default: `10m`.          |
+| `RELAY_HUB_TIMEOUT`            | Timeout for Docker Hub tag deletion step (e.g. `20s`). Default: `20s`.    |
+| `RELAY_HUB_HTTP_TIMEOUT`       | HTTP client timeout for Docker Hub requests (e.g. `10s`). Default: `10s`. |
+| `RELAY_RATE_LIMIT_RPS`         | Per-IP request rate (tokens/sec). Default: `1`.                           |
+| `RELAY_RATE_LIMIT_BURST`       | Per-IP burst capacity. Default: `5`.                                      |
+| `RELAY_PORT`                   | Port the server listens on (default: `8080`).                             |
 
 ## 📦 Deployment Flow
 

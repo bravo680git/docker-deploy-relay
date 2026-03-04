@@ -21,15 +21,15 @@ var (
 
 func hubClient() *http.Client {
 	hubHTTPOnce.Do(func() {
-		hubHTTP = &http.Client{Timeout: envDuration("HUB_HTTP_TIMEOUT", defaultHubHTTPTimeout)}
+		hubHTTP = &http.Client{Timeout: envDuration("RELAY_HUB_HTTP_TIMEOUT", defaultHubHTTPTimeout)}
 	})
 	return hubHTTP
 }
 
 func getHubJWT(ctx context.Context) (string, error) {
-	user, pass := os.Getenv("DOCKER_HUB_USER"), os.Getenv("DOCKER_HUB_PASS")
+	user, pass := os.Getenv("RELAY_DOCKER_HUB_USER"), os.Getenv("RELAY_DOCKER_HUB_PASS")
 	if user == "" || pass == "" {
-		return "", fmt.Errorf("DOCKER_HUB_USER and DOCKER_HUB_PASS must be set")
+		return "", fmt.Errorf("RELAY_DOCKER_HUB_USER and RELAY_DOCKER_HUB_PASS must be set")
 	}
 
 	body, err := json.Marshal(map[string]string{"username": user, "password": pass})

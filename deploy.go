@@ -30,7 +30,7 @@ var (
 
 func getDeploySemaphore() chan struct{} {
 	deploySemOnce.Do(func() {
-		deploySem = make(chan struct{}, envInt("MAX_CONCURRENT_DEPLOYS", maxConcurrentDP))
+		deploySem = make(chan struct{}, envInt("RELAY_MAX_CONCURRENT_DEPLOYS", maxConcurrentDP))
 	})
 	return deploySem
 }
@@ -139,11 +139,11 @@ func runDeployment(p WebhookPayload) {
 	fullImage := fmt.Sprintf("%s:%s", p.Image, p.Tag)
 	log.Printf("Starting deployment for %s (%s)", p.Project, fullImage)
 
-	ctx, cancel := context.WithTimeout(context.Background(), envDuration("DEPLOY_TIMEOUT", defaultDeployTimeout))
+	ctx, cancel := context.WithTimeout(context.Background(), envDuration("RELAY_DEPLOY_TIMEOUT", defaultDeployTimeout))
 	defer cancel()
 
 	// Pull image
-	pullCtx, pullCancel := context.WithTimeout(ctx, envDuration("DOCKER_PULL_TIMEOUT", defaultPullTimeout))
+	pullCtx, pullCancel := context.WithTimeout(ctx, envDuration("RELAY_DOCKER_PULL_TIMEOUT", defaultPullTimeout))
 	out, err := runCmd(pullCtx, "", "docker", "pull", fullImage)
 	pullCancel()
 	if err != nil {
@@ -153,7 +153,7 @@ func runDeployment(p WebhookPayload) {
 	log.Printf("Pulled %s", fullImage)
 
 	// Docker compose up
-	projectDir, err := resolveSafePath(envStr("PROJECT_ROOT", defaultAppRoot), p.Project)
+	projectDir, err := resolveSafePath(envStr("RELAY_PROJECT_ROOT", defaultAppRoot), p.Project)
 	if err != nil {
 		log.Printf("❌ %s: invalid path: %v", p.Project, err)
 		return
@@ -167,7 +167,7 @@ func runDeployment(p WebhookPayload) {
 
 	composeArgs := []string{"compose", "--project-directory", projectDir, "-f", composeFile, "up", "-d"}
 
-	composeCtx, composeCancel := context.WithTimeout(ctx, envDuration("DOCKER_COMPOSE_TIMEOUT", defaultComposeTimeout))
+	composeCtx, composeCancel := context.WithTimeout(ctx, envDuration("RELAY_DOCKER_COMPOSE_TIMEOUT", defaultComposeTimeout))
 	out, err = runCmd(composeCtx, projectDir, "docker", composeArgs...)
 	composeCancel()
 	if err != nil {
@@ -177,7 +177,7 @@ func runDeployment(p WebhookPayload) {
 	log.Printf("Deployed %s", p.Project)
 
 	// Cleanup Hub tag (best-effort)
-	hubCtx, hubCancel := context.WithTimeout(ctx, envDuration("HUB_TIMEOUT", defaultHubOpTimeout))
+	hubCtx, hubCancel := context.WithTimeout(ctx, envDuration("RELAY_HUB_TIMEOUT", defaultHubOpTimeout))
 	if err = deleteHubTag(hubCtx, p.Image, p.Tag, false); err != nil {
 		log.Printf("⚠️ %s: deployed but tag cleanup failed: %v", p.Project, err)
 	} else {

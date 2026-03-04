@@ -66,19 +66,19 @@ func handleWebhook(apiKey string, limiter *ipRateLimiter) http.HandlerFunc {
 }
 
 func main() {
-	apiKey := envStr("WEBHOOK_API_KEY", "")
+	apiKey := envStr("RELAY_WEBHOOK_API_KEY", "")
 	if apiKey == "" {
-		log.Fatal("WEBHOOK_API_KEY must be set")
+		log.Fatal("RELAY_WEBHOOK_API_KEY must be set")
 	}
 
 	limiter := newIPRateLimiter(
-		envFloat("RATE_LIMIT_RPS", defaultRateLimitRPS),
-		envInt("RATE_LIMIT_BURST", defaultRateLimitBurst),
+		envFloat("RELAY_RATE_LIMIT_RPS", defaultRateLimitRPS),
+		envInt("RELAY_RATE_LIMIT_BURST", defaultRateLimitBurst),
 	)
 
 	http.Handle("/webhook", handleWebhook(apiKey, limiter))
 
-	port := envStr("PORT", defaultPort)
+	port := envStr("RELAY_PORT", defaultPort)
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           http.DefaultServeMux,
