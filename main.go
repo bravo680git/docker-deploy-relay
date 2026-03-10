@@ -3,10 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 )
+
+// validDeployID matches the 16-character lowercase hex IDs produced by generateID.
+var validDeployID = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 type WebhookPayload struct {
 	Project string `json:"project"`
@@ -14,7 +18,7 @@ type WebhookPayload struct {
 	Tag     string `json:"tag"`
 }
 
-func handleWebhook(apiKey string, limiter *ipRateLimiter) http.HandlerFunc {
+func handleWebhook(apiKey string, limiter *ipRateLimiter, store *statusStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -55,13 +59,54 @@ func handleWebhook(apiKey string, limiter *ipRateLimiter) http.HandlerFunc {
 			return
 		}
 
+		deployID := store.Start(p)
+
 		go func() {
 			defer cleanup()
-			runDeployment(p)
+			runDeployment(p, store, deployID)
 		}()
 
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		fmt.Fprintln(w, "Deployment started")
+		json.NewEncoder(w).Encode(map[string]string{
+			"deploy_id": deployID,
+			"status":    "running",
+		})
+	}
+}
+
+func handleDeployStatus(apiKey string, limiter *ipRateLimiter, store *statusStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if ip := clientIP(r); ip != "" && !limiter.Allow(ip) {
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+
+		if !apiKeysEqual(readAPIKey(r), apiKey) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract deploy ID from path: /deploy-status/{id}
+		path := strings.TrimPrefix(r.URL.Path, "/deploy-status/")
+		if path == "" || strings.Contains(path, "/") || !validDeployID.MatchString(path) {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		result := store.Get(path)
+		if result == nil {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
 	}
 }
 
@@ -76,7 +121,10 @@ func main() {
 		envInt("RELAY_RATE_LIMIT_BURST", defaultRateLimitBurst),
 	)
 
-	http.Handle("/webhook", handleWebhook(apiKey, limiter))
+	store := newStatusStore()
+
+	http.Handle("/webhook", handleWebhook(apiKey, limiter, store))
+	http.Handle("/deploy-status/", handleDeployStatus(apiKey, limiter, store))
 
 	port := envStr("RELAY_PORT", defaultPort)
 	srv := &http.Server{

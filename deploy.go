@@ -135,9 +135,20 @@ func detectComposeFile(projectDir string) (string, error) {
 	return "", fmt.Errorf("no compose file found in %s", projectDir)
 }
 
-func runDeployment(p WebhookPayload) {
+func runDeployment(p WebhookPayload, store *statusStore, deployID string) {
+	// Safety net: ensure the deployment is never left as "running" if this
+	// function returns or panics without setting a terminal status.
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("❌ %s: panic in deployment [%s]: %v", p.Project, deployID, rec)
+			store.FailIfRunning(deployID, fmt.Sprintf("internal panic: %v", rec))
+			return
+		}
+		store.FailIfRunning(deployID, "deployment terminated unexpectedly")
+	}()
+
 	fullImage := fmt.Sprintf("%s:%s", p.Image, p.Tag)
-	log.Printf("Starting deployment for %s (%s)", p.Project, fullImage)
+	log.Printf("Starting deployment for %s (%s) [%s]", p.Project, fullImage, deployID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), envDuration("RELAY_DEPLOY_TIMEOUT", defaultDeployTimeout))
 	defer cancel()
@@ -148,6 +159,7 @@ func runDeployment(p WebhookPayload) {
 	pullCancel()
 	if err != nil {
 		log.Printf("❌ %s: pull failed: %v\n%s", p.Project, err, out)
+		store.Fail(deployID, fmt.Sprintf("pull failed: %v", err))
 		return
 	}
 	log.Printf("Pulled %s", fullImage)
@@ -156,12 +168,14 @@ func runDeployment(p WebhookPayload) {
 	projectDir, err := resolveSafePath(envStr("RELAY_PROJECT_ROOT", defaultAppRoot), p.Project)
 	if err != nil {
 		log.Printf("❌ %s: invalid path: %v", p.Project, err)
+		store.Fail(deployID, fmt.Sprintf("invalid path: %v", err))
 		return
 	}
 
 	composeFile, err := detectComposeFile(projectDir)
 	if err != nil {
 		log.Printf("❌ %s: %v", p.Project, err)
+		store.Fail(deployID, err.Error())
 		return
 	}
 
@@ -172,9 +186,13 @@ func runDeployment(p WebhookPayload) {
 	composeCancel()
 	if err != nil {
 		log.Printf("❌ %s: compose up failed: %v\n%s", p.Project, err, out)
+		store.Fail(deployID, fmt.Sprintf("compose up failed: %v", err))
 		return
 	}
 	log.Printf("Deployed %s", p.Project)
+
+	// Mark deployment as successful
+	store.Complete(deployID)
 
 	// Cleanup Hub tag (best-effort)
 	hubCtx, hubCancel := context.WithTimeout(ctx, envDuration("RELAY_HUB_TIMEOUT", defaultHubOpTimeout))
