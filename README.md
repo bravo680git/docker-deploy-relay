@@ -99,6 +99,114 @@ curl -X POST https://your-relay-host/webhook \
 | `RELAY_RATE_LIMIT_BURST`       | Per-IP burst capacity. Default: `5`.                                      |
 | `RELAY_PORT`                   | Port the server listens on (default: `8080`).                             |
 
+## API Reference
+
+### POST /webhook
+
+Triggers a new deployment. Returns `202 Accepted` immediately; the actual work runs asynchronously.
+
+**Headers**: `X-API-KEY: <key>` (required), `Content-Type: application/json`
+
+**Request body**:
+
+```json
+{
+  "project": "my-app",
+  "image": "myuser/my-app",
+  "tag": "v1.0.0"
+}
+```
+
+**Response** (`202 Accepted`):
+
+```json
+{
+  "deploy_id": "a1b2c3d4e5f60718",
+  "status": "running"
+}
+```
+
+Use the `deploy_id` to poll `GET /deploy-status/{id}` for the final result.
+
+**Error responses**:
+
+| Status                  | Meaning                                                |
+| ----------------------- | ------------------------------------------------------ |
+| `400 Bad Request`       | Missing or invalid JSON payload                        |
+| `401 Unauthorized`      | Missing or invalid API key                             |
+| `409 Conflict`          | A deployment for this project is already in progress   |
+| `429 Too Many Requests` | Rate limit exceeded or concurrent deploy limit reached |
+
+---
+
+### GET /deploy-status/{id}
+
+Returns the current status of a deployment.
+
+**Headers**: `X-API-KEY: <key>` (required)
+
+**Path parameter**: `{id}` — 16-character lowercase hex string returned by `POST /webhook`.
+
+**Response — in progress** (`200 OK`):
+
+```json
+{
+  "deploy_id": "a1b2c3d4e5f60718",
+  "project": "my-app",
+  "image": "myuser/my-app",
+  "tag": "v1.0.0",
+  "status": "running",
+  "phase": "compose_up",
+  "created_at": "2026-03-10T12:00:00Z"
+}
+```
+
+**Response — finished** (`200 OK`):
+
+```json
+{
+  "deploy_id": "a1b2c3d4e5f60718",
+  "project": "my-app",
+  "image": "myuser/my-app",
+  "tag": "v1.0.0",
+  "status": "success",
+  "created_at": "2026-03-10T12:00:00Z",
+  "done_at": "2026-03-10T12:01:30Z"
+}
+```
+
+| Field        | Type    | Description                                                                            |
+| ------------ | ------- | -------------------------------------------------------------------------------------- |
+| `deploy_id`  | string  | Unique identifier for this deployment                                                  |
+| `project`    | string  | Project name from the webhook payload                                                  |
+| `image`      | string  | Docker image from the webhook payload                                                  |
+| `tag`        | string  | Image tag from the webhook payload                                                     |
+| `status`     | string  | `running` \| `success` \| `failed`                                                     |
+| `phase`      | string  | Active step while `status` is `running`: `pulling` \| `compose_up`. Omitted when done. |
+| `error`      | string  | Present only when `status` is `failed`                                                 |
+| `created_at` | RFC3339 | When the deployment started                                                            |
+| `done_at`    | RFC3339 | When the deployment finished (omitted while `running`)                                 |
+
+**Error responses**:
+
+| Status                  | Meaning                                        |
+| ----------------------- | ---------------------------------------------- |
+| `400 Bad Request`       | Invalid or missing deploy ID format            |
+| `401 Unauthorized`      | Missing or invalid API key                     |
+| `404 Not Found`         | Deploy ID not found (expired or never existed) |
+| `429 Too Many Requests` | Rate limit exceeded                            |
+
+> **Note**: Completed results (`success` / `failed`) are retained in memory for **5 minutes** after `done_at`. Deployments stuck in `running` for more than **30 minutes** are automatically evicted.
+
+**cURL example**:
+
+```bash
+curl https://your-relay-host/deploy-status/a1b2c3d4e5f60718 \
+  -H "X-API-KEY: your-secure-api-key"
+```
+
+---
+
 ## 📦 Deployment Flow
 
 1. **Pull**: Pulls the new image from Docker Hub.

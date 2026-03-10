@@ -17,6 +17,14 @@ const (
 	StatusFailed  DeployStatus = "failed"
 )
 
+// DeployPhase represents the active step within a running deployment.
+type DeployPhase string
+
+const (
+	PhasePulling   DeployPhase = "pulling"    // docker pull
+	PhaseComposing DeployPhase = "compose_up" // docker compose up -d
+)
+
 // DeployResult holds the outcome of a deployment.
 type DeployResult struct {
 	ID        string       `json:"deploy_id"`
@@ -24,6 +32,7 @@ type DeployResult struct {
 	Image     string       `json:"image"`
 	Tag       string       `json:"tag"`
 	Status    DeployStatus `json:"status"`
+	Phase     DeployPhase  `json:"phase,omitempty"`
 	Error     string       `json:"error,omitempty"`
 	CreatedAt time.Time    `json:"created_at"`
 	DoneAt    *time.Time   `json:"done_at,omitempty"`
@@ -95,6 +104,15 @@ func (s *statusStore) Start(p WebhookPayload) string {
 	}
 	s.mu.Unlock()
 	return id
+}
+
+// SetPhase updates the active phase of a running deployment.
+func (s *statusStore) SetPhase(id string, phase DeployPhase) {
+	s.mu.Lock()
+	if r, ok := s.results[id]; ok && r.Status == StatusRunning {
+		r.Phase = phase
+	}
+	s.mu.Unlock()
 }
 
 // Complete marks a deployment as succeeded.

@@ -154,6 +154,7 @@ func runDeployment(p WebhookPayload, store *statusStore, deployID string) {
 	defer cancel()
 
 	// Pull image
+	store.SetPhase(deployID, PhasePulling)
 	pullCtx, pullCancel := context.WithTimeout(ctx, envDuration("RELAY_DOCKER_PULL_TIMEOUT", defaultPullTimeout))
 	out, err := runCmd(pullCtx, "", "docker", "pull", fullImage)
 	pullCancel()
@@ -181,6 +182,7 @@ func runDeployment(p WebhookPayload, store *statusStore, deployID string) {
 
 	composeArgs := []string{"compose", "--project-directory", projectDir, "-f", composeFile, "up", "-d"}
 
+	store.SetPhase(deployID, PhaseComposing)
 	composeCtx, composeCancel := context.WithTimeout(ctx, envDuration("RELAY_DOCKER_COMPOSE_TIMEOUT", defaultComposeTimeout))
 	out, err = runCmd(composeCtx, projectDir, "docker", composeArgs...)
 	composeCancel()
