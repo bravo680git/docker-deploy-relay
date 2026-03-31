@@ -90,7 +90,7 @@ func resolveSafePath(root, sub string) (string, error) {
 	return full, nil
 }
 
-func tryBeginDeployment(project string) (func(), error) {
+func tryBeginDeployment(project, image string) (func(), error) {
 	if !safeProjectName.MatchString(project) {
 		return nil, fmt.Errorf("invalid project name")
 	}
@@ -98,20 +98,21 @@ func tryBeginDeployment(project string) (func(), error) {
 		return nil, errDeployBusy
 	}
 
+	key := project + ":" + image
 	deployMu.Lock()
-	if deployingProjects[project] {
+	if deployingProjects[key] {
 		deployMu.Unlock()
 		releaseDeploySlot()
 		return nil, errDeployInProgress
 	}
-	deployingProjects[project] = true
+	deployingProjects[key] = true
 	deployMu.Unlock()
 
 	var once sync.Once
 	return func() {
 		once.Do(func() {
 			deployMu.Lock()
-			delete(deployingProjects, project)
+			delete(deployingProjects, key)
 			deployMu.Unlock()
 			releaseDeploySlot()
 		})

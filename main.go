@@ -46,7 +46,7 @@ func handleWebhook(apiKey string, limiter *ipRateLimiter, store *statusStore) ht
 			return
 		}
 
-		cleanup, err := tryBeginDeployment(p.Project)
+		cleanup, err := tryBeginDeployment(p.Project, p.Image)
 		if err != nil {
 			switch {
 			case errors.Is(err, errDeployInProgress):
